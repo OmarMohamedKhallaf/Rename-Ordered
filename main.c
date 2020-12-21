@@ -151,6 +151,7 @@ static long count_dir_files(char const *dir_path) {
                 __FILE__, __func__, dir_path, strerror(errno));
         goto FREE_FULL_PATH_ERROR;
     }
+    cnt = 0;
     errno = 0;
     while ((ent = readdir(dir)) != NULL) {
         if (ent->d_name[0] == '.')
