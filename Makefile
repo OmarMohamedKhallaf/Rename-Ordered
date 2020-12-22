@@ -1,7 +1,7 @@
 ODIR := ./objs
 OBJS := $(patsubst %.c,$(ODIR)/%.o,$(wildcard *.c))
 
-CFLAGS := -c -O2 -Wall -Wextra -std=c11 -pedantic-errors
+CFLAGS := -c -O2 -Wall -Wextra
 LFALGS := 
 
 CC := gcc
