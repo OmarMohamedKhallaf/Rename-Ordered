@@ -77,14 +77,15 @@ int main(int argc, char const * const *argv) {
                 __FILE__, __func__, strerror(errno));
         goto FREE_NEW_PATH_ERROR;
     }
+    cur_time.tv_nsec = 0;
     if (loop_through_dir(rename_in_tmp, dir_path, dir_path, tmp_dir_path,
-            old_filename, new_filename, new_filename_fmt) != 0) {
+            old_filename, new_filename, new_filename_fmt, &cur_time) != 0) {
         EPRINTF("%s - %s | failed to apply user function on directory '%s': %s\n",
                 __FILE__, __func__, dir_path, strerror(errno));
         goto FREE_NEW_PATH_ERROR;
     }
     if (loop_through_dir(rename_from_tmp, tmp_dir_path, dir_path, tmp_dir_path,
-                old_filename, new_filename, &cur_time) != 0) {
+                old_filename, new_filename) != 0) {
         EPRINTF("%s - %s | failed to apply user function on directory '%s': %s\n",
                 __FILE__, __func__, dir_path, strerror(errno));
         goto FREE_NEW_PATH_ERROR;
@@ -326,37 +327,38 @@ RETURN_ERROR:
 }
 
 static int rename_in_tmp(char const *filename, long file_cnt, va_list list) {
+    struct timespec *cur_time, mod_time[2];
     char *dir_path, *tmp_dir_path, *new_filename_fmt, *new_filename, *old_filename;
     dir_path = va_arg(list, char *);
     tmp_dir_path = va_arg(list, char *);
     old_filename = va_arg(list, char *);
     new_filename = va_arg(list, char *);
     new_filename_fmt = va_arg(list, char *);
+    cur_time = va_arg(list, struct timespec *);
+    ++cur_time->tv_sec;
+    mod_time[0] = mod_time[1] = *cur_time;
     sprintf(old_filename, "%s/%s", dir_path, filename);
     sprintf(new_filename, new_filename_fmt, tmp_dir_path, file_cnt, get_file_extension(filename));
-    if (rename(old_filename, new_filename) != 0)
-        EPRINTF("%s - %s | failed to rename '%s' => '%s': %s\n",
-               __FILE__, __func__,  old_filename, new_filename, strerror(errno));
-    return 0;
-}
-
-static int rename_from_tmp(char const *filename, long file_cnt, va_list list) {
-    struct timespec *cur_time, mod_time[2];
-    char *dir_path, *tmp_dir_path, *new_filename, *old_filename;
-    dir_path = va_arg(list, char *);
-    tmp_dir_path = va_arg(list, char *);
-    old_filename = va_arg(list, char *);
-    new_filename = va_arg(list, char *);
-    cur_time = va_arg(list, struct timespec *);
-    cur_time->tv_nsec += file_cnt;
-    mod_time[0] = mod_time[1] = *cur_time;
-    sprintf(old_filename, "%s/%s", tmp_dir_path, filename);
-    sprintf(new_filename, "%s/%s", dir_path, filename);
     if (rename(old_filename, new_filename) != 0)
         EPRINTF("%s - %s | failed to rename '%s' => '%s': %s\n",
                __FILE__, __func__,  old_filename, new_filename, strerror(errno));
     else if (utimensat(AT_FDCWD, new_filename, mod_time, 0) != 0)
         EPRINTF("%s - %s | failed to update atime and mtime of file '%s': %s\n",
                 __FILE__, __func__, new_filename, strerror(errno));
+    return 0;
+}
+
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static int rename_from_tmp(char const *filename, long file_cnt, va_list list) {
+    char *dir_path, *tmp_dir_path, *new_filename, *old_filename;
+    dir_path = va_arg(list, char *);
+    tmp_dir_path = va_arg(list, char *);
+    old_filename = va_arg(list, char *);
+    new_filename = va_arg(list, char *);
+    sprintf(old_filename, "%s/%s", tmp_dir_path, filename);
+    sprintf(new_filename, "%s/%s", dir_path, filename);
+    if (rename(old_filename, new_filename) != 0)
+        EPRINTF("%s - %s | failed to rename '%s' => '%s': %s\n",
+               __FILE__, __func__,  old_filename, new_filename, strerror(errno));
     return 0;
 }
